@@ -1,7 +1,11 @@
 {
   "parserOptions": {
     // Required for certain syntax usages
-    "ecmaVersion": 2017
+    "ecmaVersion": 2019,
+    "ecmaFeatures": {
+      "impliedStrict": true,
+      "classes": true
+    }
   },
   "plugins": ["promise", "prettier"],
   "extends": ["eslint:recommended", "prettier"],
