@@ -22,6 +22,7 @@ const db = admin.firestore();
 
 // routes
 
+// get screams
 app.get('/screams', async (req, res) => {
   try {
     const data = await db
@@ -42,15 +43,47 @@ app.get('/screams', async (req, res) => {
   }
 });
 
-app.post('/scream', async (req, res) => {
+// auth middleware
+const FBAuth = async (req, res, next) => {
+  let idToken;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer ')
+  ) {
+    idToken = req.headers.authorization.split('Bearer ')[1];
+  } else {
+    console.error('No token found');
+    return res.status(403).json({ error: 'Unathorized' });
+  }
+
   try {
-    const { body, userHandle } = req.body;
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
+    console.log(decodedToken);
+    const data = await db
+      .collection('users')
+      .where('userId', '==', req.user.uid)
+      .limit(1)
+      .get();
+
+    req.user.handle = data.docs[0].data().handle;
+    return next();
+  } catch (err) {
+    console.error('Error while verifying token', err);
+    return res.status(403).json(err);
+  }
+};
+
+// post one scream
+app.post('/scream', FBAuth, async (req, res) => {
+  try {
+    const { body, handle } = req.body;
     if (body.trim() === '') {
-      res.status(400).json({ body: 'Body must not be empty' });
+      return res.status(400).json({ body: 'Body must not be empty' });
     }
     const newScream = {
       body,
-      userHandle,
+      userHandle: req.user.handle,
       createdAt: new Date().toISOString(),
     };
     const doc = await db.collection('screams').add(newScream);
