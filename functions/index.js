@@ -62,29 +62,52 @@ app.post('/scream', async (req, res) => {
   }
 });
 
+// helper functions for validating singup data
+const isEmpty = (string) => {
+  if (string.trim() === '') return true;
+  else return false;
+};
+
+const isEmail = (email) => {
+  // eslint-disable-next-line no-useless-escape
+  const emailRegEx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+  if (email.match(emailRegEx)) return true;
+  else return false;
+};
+
 // signup route
 app.post('/signup', async (req, res) => {
   try {
-    const { email, password, conifirmPassword, handle } = req.body;
+    const { email, password, confirmPassword, handle } = req.body;
     const newUser = {
       email,
       password,
-      conifirmPassword,
+      confirmPassword,
       handle,
     };
 
-    let token, userId;
-    const doc = await db.doc(`/users/${newUser.handle}`).get();
+    // validate newUser object
+    let errors = {};
+    if (isEmpty(newUser.email)) {
+      errors.email = 'Must not be empty';
+    } else if (!isEmail(newUser.email)) {
+      errors.email = 'Must be a valid email address';
+    }
+    if (isEmpty(newUser.password)) errors.password = 'Must not be empty';
+    if (newUser.password !== newUser.confirmPassword)
+      errors.confirmPassword = 'Passwords must match';
+    if (isEmpty(newUser.handle)) errors.handle = 'Must not be empty';
+    if (Object.keys(errors).length > 0) return res.status(400).json(errors);
 
+    const doc = await db.doc(`/users/${newUser.handle}`).get();
     if (doc.exists) {
       return res.status(400).json({ handle: 'this handle is already taken' });
     }
     const data = await firebase
       .auth()
       .createUserWithEmailAndPassword(newUser.email, newUser.password);
-    userId = data.user.uid;
-    const idToken = await data.user.getIdToken();
-    token = idToken;
+    const userId = data.user.uid;
+    const token = await data.user.getIdToken();
     const userCredentials = {
       handle: newUser.handle,
       email: newUser.email,
@@ -103,52 +126,39 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-// app.post('/signup', (req, res) => {
-//   const { email, password, conifirmPassword, handle } = req.body;
-//   const newUser = {
-//     email,
-//     password,
-//     conifirmPassword,
-//     handle,
-//   };
+// login route
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = {
+      email,
+      password,
+    };
 
-//   let token, userId;
-//   db.doc(`/users/${newUser.handle}`)
-//     .get()
-//     .then((doc) => {
-//       if (doc.exists) {
-//         return res.status(400).json({ handle: 'this handle is already taken' });
-//       } else {
-//         return firebase
-//           .auth()
-//           .createUserWithEmailAndPassword(newUser.email, newUser.password);
-//       }
-//     })
-//     .then((data) => {
-//       userId = data.user.uid;
-//       return data.user.getIdToken();
-//     })
-//     .then((t) => {
-//       token = t;
-//       const userCredentials = {
-//         handle: newUser.handle,
-//         email: newUser.email,
-//         createdAt: new Date().toISOString(),
-//         userId,
-//       };
-//       return db.doc(`/users/${newUser.handle}`).set(userCredentials);
-//     })
-//     .then(() => {
-//       return res.status(201).json({ token });
-//     })
-//     .catch((err) => {
-//       console.error(err);
-//       if (err.code === 'auth/email-already-in-use') {
-//         return res.status(400).json({ email: 'email is already in use' });
-//       } else {
-//         return res.status(500).json({ error: err.code });
-//       }
-//     });
-// });
+    // validate user object
+    let errors = {};
+    if (isEmpty(user.email)) errors.email = 'Must not be empty';
+    if (isEmpty(user.password)) errors.password = 'Must not be empty';
+    if (Object.keys(errors).length > 0) return res.status(400).json(errors);
+
+    const data = await firebase
+      .auth()
+      .signInWithEmailAndPassword(user.email, user.password);
+    const token = await data.user.getIdToken();
+    return res.json({ token });
+  } catch (err) {
+    console.error(err);
+    if (
+      err.code === 'auth/wrong-password' ||
+      err.code === 'auth/user-not-found'
+    ) {
+      return res
+        .status(403)
+        .json({ general: 'Wrong credentials, please try again' });
+    } else {
+      return res.status(500).json({ error: err.code });
+    }
+  }
+});
 
 exports.api = functions.region('europe-west1').https.onRequest(app);
