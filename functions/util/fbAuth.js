@@ -16,7 +16,6 @@ module.exports = async (req, res, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
-    console.log(decodedToken);
     const data = await db
       .collection('users')
       .where('userId', '==', req.user.uid)
