@@ -6,10 +6,15 @@ const fs = require('fs');
 
 const { admin, db } = require('../util/admin');
 const config = require('../util/config');
-const { validateSignupData, validateLoginData } = require('../util/validators');
+const {
+  validateSignupData,
+  validateLoginData,
+  reduceUserDetails,
+} = require('../util/validators');
 
 firebase.initializeApp(config);
 
+// SIGN UP
 exports.signup = async (req, res) => {
   try {
     const { email, password, confirmPassword, handle } = req.body;
@@ -54,6 +59,7 @@ exports.signup = async (req, res) => {
   }
 };
 
+// LOGIN
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -86,6 +92,45 @@ exports.login = async (req, res) => {
   }
 };
 
+// ADD USER DETAILS
+exports.addUserDetails = async (req, res) => {
+  const userDetails = reduceUserDetails(req.body);
+
+  try {
+    // access to req.user is available from FBAuth middleware
+    await db.doc(`/users/${req.user.handle}`).update(userDetails);
+    return res.json({ message: 'Details added successfully' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.code });
+  }
+};
+
+// GET OWN USER DETAILS
+exports.getAuthenticatedUser = async (req, res) => {
+  let userData = {};
+
+  try {
+    const doc = await db.doc(`users/${req.user.handle}`).get();
+    if (doc.exists) userData.credentials = doc.data();
+
+    const data = await db
+      .collection('likes')
+      .where('userHandle', '==', req.user.handle)
+      .get();
+    userData.likes = [];
+    data.forEach((doc) => {
+      userData.likes.push(doc.data());
+    });
+
+    return res.json(userData);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.code });
+  }
+};
+
+// UPLOAD A PROFILE IMAGE FOR USER
 exports.uploadImage = (req, res) => {
   const busboy = new BusBoy({ headers: req.headers });
 
