@@ -106,6 +106,36 @@ exports.addUserDetails = async (req, res) => {
   }
 };
 
+// GET ANY USER'S DETAILS
+exports.getUserDetails = async (req, res) => {
+  let userData = {};
+  try {
+    const doc = await db.doc(`/users/${req.params.handle}`).get();
+    if (doc.exists) {
+      userData.user = doc.data();
+    } else {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const data = await db
+      .collection('screams')
+      .where('userHandle', '==', req.params.handle)
+      .orderBy('createdAt', 'desc')
+      .get();
+    userData.screams = [];
+    data.forEach((doc) => {
+      userData.screams.push({
+        ...doc.data(),
+        screamId: doc.id,
+      });
+    });
+    return res.json(userData);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.code });
+  }
+};
+
 // GET OWN USER DETAILS
 exports.getAuthenticatedUser = async (req, res) => {
   let userData = {};
@@ -121,6 +151,20 @@ exports.getAuthenticatedUser = async (req, res) => {
     userData.likes = [];
     data.forEach((doc) => {
       userData.likes.push(doc.data());
+    });
+
+    const notificationsData = await db
+      .collection('notifications')
+      .where('recipient', '==', req.user.handle)
+      .orderBy('createdAt', 'desc')
+      .limit(10)
+      .get();
+    userData.notification = [];
+    notificationsData.forEach((doc) => {
+      userData.notification.push({
+        ...doc.data(),
+        notificationId: doc.id,
+      });
     });
 
     return res.json(userData);
@@ -179,4 +223,20 @@ exports.uploadImage = (req, res) => {
   });
 
   busboy.end(req.rawBody);
+};
+
+// Mark notification that user has seen as read
+exports.markNotificationsRead = async (req, res) => {
+  try {
+    let batch = db.batch();
+    req.body.forEach((notificationId) => {
+      const notification = db.doc(`/notifications/${notificationId}`);
+      batch.update(notification, { read: true });
+    });
+    await batch.commit();
+    return res.json({ message: 'Notifications marked read' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.code });
+  }
 };

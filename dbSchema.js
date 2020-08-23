@@ -28,5 +28,15 @@ let db = {
       createdAt: '2020-08-15T13:47:53.266Z',
       userImage: 'image/fskufhkdufhkhdf/fusdhfidu',
     }
-  ]
+  ],
+  notifications: [
+    {
+      recipient: 'user',
+      sender: 'tom',
+      read: 'true | false',
+      screamId: 'hfiewgfiwegflielgf',
+      type: 'like |  comment',
+      createdAt: '2020-08-15T13:47:53.266Z',
+    }
+  ],
 }
