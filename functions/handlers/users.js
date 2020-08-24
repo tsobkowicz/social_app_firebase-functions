@@ -33,7 +33,7 @@ exports.signup = async (req, res) => {
 
     const doc = await db.doc(`/users/${newUser.handle}`).get();
     if (doc.exists) {
-      return res.status(400).json({ handle: 'this handle is already taken' });
+      return res.status(400).json({ handle: 'This handle is already taken' });
     }
     const data = await firebase
       .auth()
@@ -52,9 +52,11 @@ exports.signup = async (req, res) => {
   } catch (err) {
     console.error(err);
     if (err.code === 'auth/email-already-in-use') {
-      return res.status(400).json({ email: 'email is already in use' });
+      return res.status(400).json({ email: 'Email is already in use' });
     } else {
-      return res.status(500).json({ error: err.code });
+      return res
+        .status(500)
+        .json({ general: 'Something went wrong, please try again' });
     }
   }
 };
@@ -79,16 +81,12 @@ exports.login = async (req, res) => {
     return res.json({ token });
   } catch (err) {
     console.error(err);
-    if (
-      err.code === 'auth/wrong-password' ||
-      err.code === 'auth/user-not-found'
-    ) {
-      return res
-        .status(403)
-        .json({ general: 'Wrong credentials, please try again' });
-    } else {
-      return res.status(500).json({ error: err.code });
-    }
+
+    // 'auth/wrong-password'
+    // 'auth/user-not-found'
+    return res
+      .status(403)
+      .json({ general: 'Wrong credentials, please try again' });
   }
 };
 
